@@ -39,6 +39,10 @@ class Hardware:
         self.block_map = {}  # tells a Block where its corresponding Close is
 
     def reset(self):
+        """
+        Reset the hardware back to the state before tick was ever called.
+        Does not remove the trait.
+        """
         self.IP = 0
         self.EOP = False
         self.registers = [0.0] * 24
@@ -51,12 +55,19 @@ class Hardware:
             self.file = None
 
     def clear_program(self):
+        """
+        Removes all instructions and resets.
+        Does not remove the trait.
+        """
         self.instructions.clear()
         self.reset()
 
     def copy(self):
+        """
+        Does a deep copy of the program.
+        Not the actual hw. (IP / trait / ...)
+        """
         hw = Hardware(self.inst_lib, None, self.MIN_PROGRAM_LENGTH, self.MAX_PROGRAM_LENGTH, self.IPS)
-
         for i in self.instructions:
             inst = self.inst_lib.lib[i.name]
             hw.instructions.append(inst[0](*inst[1:]))
@@ -64,10 +75,19 @@ class Hardware:
         return hw
 
     def set_verbose(self):
-        self.verbose = True
-        self.file = open(f"{self.traits}.txt", "w")
+        """
+        Creates a file to dump debug info to every tick.
+        """
+        if not self.verbose:
+            self.verbose = True
+            self.file = open(f"{self.traits}.txt", "w")
 
     def tick(self):
+        """
+        Updates the IP to the next next program instruction.
+        --- Not always the following (loops, if, etc)
+        Dumps debug info if verbose.
+        """
         if self.IP < 0 or self.IP >= len(self.instructions):
             return
 
@@ -91,6 +111,10 @@ class Hardware:
         self.last_tick_time = time()
 
     def cache(self):
+        """
+        Must run once before a hardware starts.
+        Close and Block types must bind to each other for quick lookups.
+        """
         self.cache_dirty = False
         stack = []
         for i, inst in enumerate(self.instructions):
@@ -102,14 +126,18 @@ class Hardware:
                     self.close_map[i] = blk
                     self.block_map[blk] = i
                 else:
-                    self.close_map[i] = i+1
+                    self.close_map[i] = i + 1
         for _ in range(len(stack)):
             self.instructions.append(self.inst_lib.get_inst("Close"))
             blk = stack.pop()
-            self.close_map[len(self.instructions)-1] = blk
-            self.block_map[blk] = len(self.instructions)-1
+            self.close_map[len(self.instructions) - 1] = blk
+            self.block_map[blk] = len(self.instructions) - 1
 
     def update_ip(self, ip_next_state):
+        """
+        Updates IP to next position
+        ip_next_state: Int [0, 2] - Instruction returned int to tell where to go for next instruction
+        """
         if ip_next_state == IP_next_state.LOOP_END:
             self.IP = self.block_map[self.IP] + 1
 
@@ -120,21 +148,30 @@ class Hardware:
             self.IP += 1
 
     def __len__(self):
+        """
+        Length of hardware is aliased to length of its instructions
+        """
         return len(self.instructions)
 
     def cache_fitness(self, fitness):
+        """
+        Sets fitness of the hardware.
+        """
         self.fitness = fitness
 
     def generate_program(self):
+        """
+        Creates a random program bound by program length requirements
+        """
         prog_len = randint(self.MIN_PROGRAM_LENGTH, self.MAX_PROGRAM_LENGTH)
         insts = list(self.inst_lib.lib.values())
         i = 0
         while i < prog_len:
             inst = choice(insts)
             self.instructions.append(inst[0](*inst[1:]))
-            self.instructions[-1].args[0] = randint(0, len(self.registers)-1)
-            self.instructions[-1].args[1] = randint(0, len(self.registers)-1)
-            self.instructions[-1].args[2] = randint(0, len(self.registers)-1)
+            self.instructions[-1].args[0] = randint(0, len(self.registers) - 1)
+            self.instructions[-1].args[1] = randint(0, len(self.registers) - 1)
+            self.instructions[-1].args[2] = randint(0, len(self.registers) - 1)
             i += 1
 
     def load_program(self, name):
@@ -155,7 +192,7 @@ class Hardware:
             line = line.strip()
             if not line:
                 continue
-            line = line.replace(" ",",")
+            line = line.replace(" ", ",")
             line = line.split(",")
             inst_name = line[0]
             il = self.inst_lib.lib[inst_name]
@@ -170,18 +207,25 @@ class Hardware:
             self.instructions.append(inst)
 
     def __str__(self):
+        """
+        returns a string representation of the hardware.
+        --- Ip, registers, program.
+        """
         ret = [str(self.IP), str(self.registers)]
         tabs = 0
         for idx, i in enumerate(self.instructions):
             if i.name == "Close" and tabs >= 1:
                 tabs -= 1
-            ret.append(f"{str(idx)+'.':>3} " + "\t" * tabs + str(i))
+            ret.append(f"{str(idx) + '.':>3} " + "\t" * tabs + str(i))
             if i.is_block:
                 tabs += 1
 
         return "\n".join(ret)
 
     def get_writable_program(self):
+        """
+        returns a string representation of only the program
+        """
         ret = []
         tabs = 0
         for idx, i in enumerate(self.instructions):
@@ -194,6 +238,7 @@ class Hardware:
         return "\n".join(ret)
 
 
+#  All the different instructions for the hardware to use ###
 class InstructionLibrary:
     def __init__(self):
         self.lib = {}
@@ -206,6 +251,8 @@ class InstructionLibrary:
         return inst[0](*inst[1:])
 
 
+#  Instructions to be run by the hardware in the program
+#  Comprised of a name and 3 arguments.
 class Instruction:
     def __init__(self, name, callback, is_block):
         self.name = name
@@ -229,7 +276,8 @@ class Instruction:
         return F"{self.name:<8} {tuple(self.args)}"
 
 
+#  Instructions must return one of the following ints to determine an IP's next state
 class IP_next_state(Enum):
-    NEXT = 0
-    LOOP_START = 1
-    LOOP_END = 2
+    NEXT = 0  # Go to the next instruction
+    LOOP_START = 1  # Go back to the beginning of the loop
+    LOOP_END = 2  # Go one past the end of the current loop
