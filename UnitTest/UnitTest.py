@@ -1,5 +1,5 @@
-from Hardware import Hardware, InstructionLibrary
-import Instructions as inst
+from LGPy.Hardware import Hardware, InstructionLibrary
+from LGPy import Instructions as inst
 import os
 
 

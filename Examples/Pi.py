@@ -1,7 +1,7 @@
-from Hardware import Hardware, InstructionLibrary
-import Instructions as inst
-from Selection import tournament
-from Mutation import mutate
+from LGPy.Hardware import Hardware, InstructionLibrary
+from LGPy import Instructions as inst
+from LGPy.Selection import tournament
+from LGPy.Mutation import mutate
 from math import pi
 
 

@@ -5,7 +5,7 @@ with open("README.md", "r") as readme:
 
 setuptools.setup(
     name="LGPy",
-    version = "1.0.0",
+    version="1.0.2",
     author="NateRiz",
     author_email="nathan.rizik@gmail.com",
     description="A Linear Genetic Programming Library",
